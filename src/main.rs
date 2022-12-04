@@ -28,20 +28,13 @@ async fn main() {
 
 async fn run() -> Result<(), Error> {
     let args = Args::parse();
-    println!("args: {:?}", args);
-
-    let r#in = input::Input::new().await?;
-
+    let input_svc = input::Input::new().await?;
     let results = match args {
-        Args { day: None, .. } => run_all_challenges(&r#in).await?,
+        Args { day: None, .. } => run_all_challenges(&input_svc).await?,
         Args {
             day: Some(d),
             parts,
-        } if d >= 1 && d <= 25 => vec![run_challenge(d, parts, &r#in).await?],
-        Args {
-            day: Some(d),
-            parts: _,
-        } => return Err(Error::InvalidDayError(d)),
+        } => vec![run_challenge(d, parts, &input_svc).await?],
     };
 
     println!("results:");

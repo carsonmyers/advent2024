@@ -1,5 +1,3 @@
-mod day1;
-mod day2;
 pub mod error;
 
 use std::fmt;
@@ -30,11 +28,11 @@ impl fmt::Display for ChallengePart {
 }
 
 pub trait Challenge<T: AsRef<str>> {
-    fn run(&self, part: ChallengePart) -> Result<i64>;
+    fn run(&self, part: ChallengePart) -> Result<String>;
 }
 
-pub async fn run_all_challenges(input_svc: &Input) -> Result<Vec<Vec<i64>>> {
-    Ok(stream::iter(1..=25)
+pub async fn run_all_challenges(input_svc: &Input) -> Result<Vec<Vec<String>>> {
+    let results = stream::iter(1..=25)
         .map(|day| {
             run_challenge(
                 day,
@@ -49,20 +47,19 @@ pub async fn run_all_challenges(input_svc: &Input) -> Result<Vec<Vec<i64>>> {
         .into_iter()
         .filter_map(|res| match res {
             result @ Ok(_) => Some(result),
-            Err(Error {
-                source: ErrorKind::DayNotImplemented(_),
-                ..
-            }) => None,
+            Err(Error::DayNotImplemented(_)) => None,
             result @ Err(_) => Some(result),
         })
-        .collect::<Result<Vec<_>>>()?)
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(results)
 }
 
 pub async fn run_challenge(
     day: usize,
     parts: Vec<ChallengePart>,
     input_svc: &Input,
-) -> Result<Vec<i64>> {
+) -> Result<Vec<String>> {
     let challenge = get_challenge(day, input_svc).await?;
 
     let result = parts
@@ -73,24 +70,18 @@ pub async fn run_challenge(
     Ok(result)
 }
 
-/*
 macro_rules! challenge {
     ($day:tt, $svc:expr => $mod:ident :: $struct:ident) => {{
-        let r#in = $svc
-            .get_input($day)
-            .await
-            .map_err(|err| Error::input_error($day, err))?;
+        let r#in = $svc.get_input($day).await?;
         Ok(Box::new($mod::$struct::new(r#in)) as Box<dyn Challenge<String>>)
     }};
 }
-*/
 
 async fn get_challenge(day: usize, input_svc: &Input) -> Result<Box<dyn Challenge<String>>> {
     let challenge = match day {
-        //day if day == 1 => challenge!(day, input_svc => day1::Day1),
-        //day if day == 2 => challenge!(day, input_svc => day2::Day2),
-        day if day > 25 => Err(Error::invalid_day(day)),
-        day => Err(Error::not_implemented(day)),
+        //day @ 1 => challenge!(day, input_svc => day1::Day1),
+        day if day > 25 => Err(Error::InvalidDay(day)),
+        day => Err(Error::DayNotImplemented(day)),
     }?;
 
     Ok(challenge)
