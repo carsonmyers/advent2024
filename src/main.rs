@@ -1,6 +1,7 @@
 mod challenge;
 mod error;
 mod input;
+mod select;
 
 use clap::Parser;
 

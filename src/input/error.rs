@@ -4,6 +4,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("no session file: place adventofcode session key in ./.session")]
+    NoSessionFile,
+    #[error("input file {0} does not exist")]
+    NoInputFile(PathBuf),
     #[error("http error: {0}")]
     HttpError(#[from] reqwest::Error),
     #[error("path error")]
