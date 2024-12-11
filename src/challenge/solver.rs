@@ -84,7 +84,7 @@ pub async fn solve(challenge: Challenge, input: Arc<Mutex<dyn Input>>) -> Soluti
             solution,
         }
     })
-    .await;
+        .await;
 
     let Ok(solution) = solution else {
         return Solution::error(
@@ -129,6 +129,7 @@ fn get_challenge<'a>(day: usize, input: Arc<Mutex<dyn Input>>) -> Result<Box<dyn
         1 => solver_inst!(1, input),
         2 => solver_inst!(2, input),
         3 => solver_inst!(3, input),
+        4 => solver_inst!(4, input),
         day if day > 25 => Err(Error::InvalidDay(day)),
         day => Err(Error::DayNotImplemented(day)),
     }

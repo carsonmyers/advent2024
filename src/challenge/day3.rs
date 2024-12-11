@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-
 use winnow::prelude::*;
 
 use crate::challenge::{Error, Result, Solver};
@@ -11,8 +10,9 @@ pub struct Day3 {
     input: Arc<Mutex<dyn Input>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Cmd {
+    None,
     Do(bool),
     Mul(i64, i64),
 }
@@ -56,12 +56,14 @@ impl Day3 {
     }
 
     fn parse_commands(input: &mut &str) -> PResult<Vec<Cmd>> {
-        use winnow::combinator::not;
-        use winnow::combinator::{opt, preceded, repeat};
+        use winnow::error::StrContext;
+        use winnow::combinator::{preceded, repeat};
+        use winnow::token::take_until;
 
         let mut parser = repeat(
             0..,
-            preceded(opt(not(Self::parse_command)), Self::parse_command),
+            preceded(take_until(0.., ("do()", "don't()", "mul(")),
+                     Self::parse_command.context(StrContext::Label("match command"))),
         );
 
         parser.parse_next(input)
@@ -70,13 +72,16 @@ impl Day3 {
     fn parse_command(input: &mut &str) -> PResult<Cmd> {
         use winnow::ascii::dec_int;
         use winnow::combinator::{alt, delimited, separated_pair};
+        use winnow::token::any;
 
-        let mut parser = alt((
-            "do".map(|_| Cmd::Do(true)),
-            "don't()".map(|_| Cmd::Do(false)),
-            delimited("mul(", separated_pair(dec_int, ',', dec_int), ")")
-                .map(|(a, b)| Cmd::Mul(a, b)),
-        ));
+        let mut parser =
+            alt((
+                "do()".map(|_| Cmd::Do(true)),
+                "don't()".map(|_| Cmd::Do(false)),
+                delimited("mul(", separated_pair(dec_int, ',', dec_int), ")")
+                    .map(|(a, b)| Cmd::Mul(a, b)),
+                any.map(|_| Cmd::None),
+            ));
 
         parser.parse_next(input)
     }
@@ -102,16 +107,13 @@ impl Solver for Day3 {
         let mut do_flag = true;
         let mut total = 0;
         for cmd in &commands {
-            println!("cmd: {:?}", cmd);
             match cmd {
                 Cmd::Do(flag) => {
-                    println!("\tdo: {}", *flag);
                     do_flag = *flag;
-                },
+                }
                 Cmd::Mul(lhs, rhs) if do_flag => {
                     total += lhs * rhs;
-                    println!("\tmul: {} {} {}", lhs, rhs, total);
-                },
+                }
                 _ => continue,
             }
         }
@@ -130,9 +132,8 @@ mod tests {
         let input = r#"xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))"#;
 
         let input = test_input(input);
-        dbg!(&input);
         let solver = Day3::new(Arc::new(Mutex::new(input)));
-        assert_eq!(solver.solve_part_2().unwrap(), "48");
+        assert_eq!(solver.solve_part_1().unwrap(), "161");
     }
 
     #[test]
@@ -142,49 +143,5 @@ mod tests {
         let input = test_input(input);
         let solver = Day3::new(Arc::new(Mutex::new(input)));
         assert_eq!(solver.solve_part_2().unwrap(), "48");
-    }
-
-    #[test]
-    fn test_simple() {
-        let input = test_input(r#"mul(1,2)mul(2,2)"#);
-        dbg!(&input);
-        let solver = Day3::new(Arc::new(Mutex::new(input)));
-        assert_eq!(solver.solve_part_1().unwrap(), "6");
-
-        let input = test_input(r#"mul(1,2)don't()mul(2,3)do()mul(3,4)"#);
-        dbg!(&input);
-        let solver = Day3::new(Arc::new(Mutex::new(input)));
-        assert_eq!(solver.solve_part_2().unwrap(), "14");
-    }
-
-    fn get_mul(input: &mut &str) -> PResult<(i64, i64)> {
-        use winnow::ascii::dec_int;
-        use winnow::combinator::{delimited, preceded, separated_pair};
-        use winnow::error::StrContext;
-        use winnow::token::take_until;
-
-        preceded(
-            take_until(0.., "mul(").context(StrContext::Label("until")),
-            delimited(
-                "mul(",
-                separated_pair(dec_int, ',', dec_int).context(StrContext::Label("mul")),
-                ')'.context(StrContext::Label("close")),
-            ),
-        )
-        .context(StrContext::Label("delimited"))
-        .parse_next(input)
-    }
-
-    fn mul(input: &mut &str) -> PResult<i64> {
-        get_mul.map(|(a, b)| a * b).parse_next(input)
-    }
-
-    #[test]
-    fn test_parse() {
-        let mut input = "xmul(3,4)999";
-
-        let res = mul(&mut input);
-        assert!(res.is_ok());
-        assert_eq!(res.unwrap(), 12);
     }
 }
