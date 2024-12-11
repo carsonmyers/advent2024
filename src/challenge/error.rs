@@ -8,8 +8,10 @@ pub enum Error {
     InvalidDay(usize),
     #[error("day `{0}` not implemented")]
     DayNotImplemented(usize),
+    #[error("invalid line: {0}")]
+    LineParseError(String),
     #[error("input error: {0}")]
-    InputError(#[from] input::error::Error),
+    InputError(#[from] input::Error),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("missing data in challenge: {0}")]
@@ -20,6 +22,8 @@ pub enum Error {
     TooManyLinesError(),
     #[error("no solution found")]
     NoSolutionError(),
+    #[error("solver panicked: {0}")]
+    SolverPanicError(String),
     #[error("unknown error")]
     #[default]
     UnknownError,

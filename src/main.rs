@@ -3,21 +3,21 @@ mod error;
 mod input;
 mod select;
 
-use clap::Parser;
+use std::sync::{Arc, Mutex};
 
-use challenge::ChallengePart;
-use error::Error;
+use clap::{value_parser, Parser};
+use itertools::Itertools;
 
-use crate::challenge::{run_all_challenges, run_challenge};
+use crate::challenge::solve_all;
+use crate::error::Error;
+use crate::input::{Download, InputFiles};
+use crate::select::MultiChallengeSelector;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg()]
-    day: Option<usize>,
-
-    #[arg(value_enum)]
-    parts: Vec<ChallengePart>,
+    #[arg(value_parser = value_parser!(MultiChallengeSelector))]
+    parts: Vec<MultiChallengeSelector>,
 }
 
 #[tokio::main]
@@ -29,18 +29,19 @@ async fn main() {
 
 async fn run() -> Result<(), Error> {
     let args = Args::parse();
-    let input_svc = input::Input::new().await?;
-    let results = match args {
-        Args { day: None, .. } => run_all_challenges(&input_svc).await?,
-        Args {
-            day: Some(d),
-            parts,
-        } => vec![run_challenge(d, parts, &input_svc).await?],
-    };
+    let challenges = args.parts.into_iter().flatten().collect_vec();
 
-    println!("results:");
-    for result_set in results {
-        println!("{:?}", result_set);
+    let input = InputFiles::new("input")?;
+    {
+        let downloader = Download::new(&input).await?;
+        downloader.download_missing(&challenges).await?;
+    }
+
+    let input = Arc::new(Mutex::new(input));
+    let solutions = solve_all(challenges, input.clone()).await;
+
+    for solution in solutions {
+        println!("\t{}", solution)
     }
 
     Ok(())

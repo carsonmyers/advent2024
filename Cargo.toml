@@ -1,19 +1,21 @@
 [package]
-name = "aoc22"
+name = "aoc24"
 authors = ["Carson Myers <carson@myers.se>"]
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.66"
-clap = { version = "4.0.29", features = ["derive"] }
-futures = "0.3.25"
-itertools = "0.10.5"
+anyhow = "1.0.94"
+clap = { version = "4.5.23", features = ["derive"] }
+cli-colors = "1.0.0"
+cookie_store = "0.21.1"
+futures = "0.3.31"
+itertools = "0.13.0"
 paste = "1.0.15"
 rand = "0.8.5"
-reqwest = { version = "0.12.9", features = ["json", "cookies"] }
-thiserror = "2.0.4"
-tokio = { version = "1.22.0", features = ["full"] }
-tokio-stream = "0.1.11"
-url = "2.3.1"
-winnow = "0.6.20"
+reqwest = { version = "0.12.9", features = ["json", "cookies", "rustls-tls"] }
+thiserror = "2.0.5"
+tokio = { version = "1.42.0", features = ["full"] }
+tokio-stream = "0.1.17"
+url = "2.5.4"
+winnow = { version = "0.6.20", features = ["alloc"] }

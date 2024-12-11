@@ -1,46 +1,134 @@
-use std::fmt;
+use std::cmp::Ordering;
+use std::fmt::{Debug, Display, Formatter};
+use std::sync::{Arc, Mutex};
 
-use clap::ValueEnum;
 use paste::paste;
+use tokio::task::{spawn_blocking, JoinSet};
 
-use crate::challenge::{Result, Error};
+use crate::challenge::*;
+use crate::error::thread_panic_string;
 use crate::input::Input;
+use crate::select::{Challenge, ChallengePart};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-#[repr(i32)]
-pub enum Part {
-    First = 1,
-    Second = 2,
-}
+pub trait Solver: Debug + Send + Sync {
+    fn new(input: Arc<Mutex<dyn Input>>) -> Self
+    where
+        Self: Sized;
 
-impl fmt::Display for Part {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::First => write!(f, "first"),
-            Self::Second => write!(f, "second"),
+    fn solve_part_1(&self) -> Result<String>;
+    fn solve_part_2(&self) -> Result<String>;
+
+    fn solve(&self, part: ChallengePart) -> Result<String> {
+        use ChallengePart::*;
+        match part {
+            First => self.solve_part_1(),
+            Second => self.solve_part_2(),
         }
     }
 }
 
-pub trait Solver<'a> {
-    async fn new(input: &Input) -> Self;
-    async fn solve(&mut self, part: Part) -> Result<String>;
+#[derive(Debug)]
+pub struct Solution {
+    challenge: Challenge,
+    solution: Result<String>,
 }
 
-pub async fn solve(day: usize, part: Part, input: &mut Input) -> Result<String> {
-    let mut solver = get_challenge(day, input);
-    solver.solve(part).await
+impl Solution {
+    fn error(challenge: Challenge, err: Error) -> Self {
+        Self {
+            challenge,
+            solution: Err(err),
+        }
+    }
+}
+
+impl PartialEq for Solution {
+    fn eq(&self, other: &Self) -> bool {
+        self.challenge.eq(&other.challenge)
+    }
+}
+
+impl PartialOrd for Solution {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.challenge.partial_cmp(&other.challenge)
+    }
+}
+
+impl Eq for Solution {}
+
+impl Ord for Solution {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.challenge.cmp(&other.challenge)
+    }
+}
+
+impl Display for Solution {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.solution {
+            Ok(solution) => write!(f, "{}: {}", self.challenge, solution),
+            Err(err) => write!(f, "{}: ERROR {}", self.challenge, err),
+        }
+    }
+}
+
+pub async fn solve(challenge: Challenge, input: Arc<Mutex<dyn Input>>) -> Solution {
+    let solver = get_challenge(challenge.day, input);
+    let Ok(solver) = solver else {
+        return Solution::error(challenge, solver.unwrap_err());
+    };
+
+    let solution = spawn_blocking(move || {
+        let solution = solver.solve(challenge.part);
+        Solution {
+            challenge,
+            solution,
+        }
+    })
+    .await;
+
+    let Ok(solution) = solution else {
+        return Solution::error(
+            challenge,
+            Error::SolverPanicError(thread_panic_string(solution.unwrap_err())),
+        );
+    };
+
+    solution
+}
+
+pub async fn solve_all(
+    challenges: Vec<Challenge>,
+    input: Arc<Mutex<impl Input + 'static>>,
+) -> Vec<Solution> {
+    let mut join_set = JoinSet::new();
+    for challenge in challenges {
+        join_set.spawn(solve(challenge, input.clone()));
+    }
+
+    let mut result = Vec::new();
+    while let Some(solution) = join_set.join_next().await {
+        let Ok(solution) = solution else {
+            panic!("unhandled join error: {:?}", solution.unwrap_err())
+        };
+
+        result.push(solution);
+    }
+
+    result.sort();
+    result
 }
 
 macro_rules! solver_inst {
     ($day:tt, $input:ident) => {{
-        Ok(Box::new(paste!{ [<day $day>]::[<Day $day>] }::new($day, $input)) as Box<dyn Solver<'a>>)
-    }}
+        Ok(Box::new(<paste! { [<day $day>]::[<Day $day>] }>::new($input)) as Box<dyn Solver>)
+    }};
 }
 
-fn get_challenge<'a>(day: usize, input: &'a Input) -> Result<Box<dyn Solver<'a>>> {
+fn get_challenge<'a>(day: usize, input: Arc<Mutex<dyn Input>>) -> Result<Box<dyn Solver>> {
     match day {
         1 => solver_inst!(1, input),
+        2 => solver_inst!(2, input),
+        3 => solver_inst!(3, input),
         day if day > 25 => Err(Error::InvalidDay(day)),
         day => Err(Error::DayNotImplemented(day)),
     }
