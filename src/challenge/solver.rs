@@ -130,6 +130,7 @@ fn get_challenge<'a>(day: usize, input: Arc<Mutex<dyn Input>>) -> Result<Box<dyn
         2 => solver_inst!(2, input),
         3 => solver_inst!(3, input),
         4 => solver_inst!(4, input),
+        5 => solver_inst!(5, input),
         day if day > 25 => Err(Error::InvalidDay(day)),
         day => Err(Error::DayNotImplemented(day)),
     }

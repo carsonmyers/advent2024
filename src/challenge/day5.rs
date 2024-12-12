@@ -1,6 +1,8 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use itertools::Itertools;
 use winnow::prelude::*;
 
 use crate::challenge::Solver;
@@ -45,6 +47,26 @@ impl Day5 {
         true
     }
 
+    fn sort_update(update: &[usize], rules: &Rules) -> Vec<usize> {
+        update.iter().sorted_by(|a, b| {
+            if let Some(pages) = rules.get(a) {
+                if pages.contains(b) {
+                    Ordering::Less
+                } else {
+                    Ordering::Equal
+                }
+            } else if let Some(pages) = rules.get(b) {
+                if pages.contains(a) {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            } else {
+                Ordering::Equal
+            }
+        }).cloned().collect_vec()
+    }
+
     fn read_rules_and_updates(&self) -> Result<(Rules, Updates)> {
         let helper = InputHelper::new(5, self.input.clone());
         let data = self
@@ -82,7 +104,7 @@ impl Day5 {
     }
     fn parse_lines(&self, input: &mut &str) -> PResult<(Vec<(usize, usize)>, Vec<Vec<usize>>)> {
         use winnow::ascii::{dec_uint, line_ending};
-        use winnow::combinator::{repeat, separated, separated_pair, terminated};
+        use winnow::combinator::{separated, separated_pair, terminated};
         use winnow::error::StrContext;
 
         (
@@ -90,18 +112,16 @@ impl Day5 {
                 separated(1.., separated_pair(dec_uint, "|", dec_uint), line_ending),
                 (line_ending, line_ending),
             )
-            .context(StrContext::Label("rules section")),
-            separated(
+                .context(StrContext::Label("rules section")),
+            separated::<_, Vec<usize>, _, _, _, _, _>(
                 1..,
-                    separated(
-                        1..,
-                        dec_uint::<_, usize, _>.context(StrContext::Label("update page")),
-                        ",",
-                    )
-                    .context(StrContext::Label("update")),
-                    line_ending,
-                )
-                .context(StrContext::Label("update line")),
+                separated::<_, usize, _, _, _, _, _>(
+                    1..,
+                    dec_uint::<_, usize, _>,
+                    ",",
+                ),
+                line_ending,
+            )
         )
             .parse_next(input)
     }
@@ -128,7 +148,16 @@ impl Solver for Day5 {
     }
 
     fn solve_part_2(&self) -> Result<String> {
-        todo!()
+        let (rules, updates) = self.read_rules_and_updates()?;
+
+        let result = updates
+            .into_iter()
+            .filter(|update| !Self::validate_update(update, &rules))
+            .map(|pages| Self::sort_update(&pages, &rules))
+            .map(|pages| pages[pages.len() / 2])
+            .sum::<usize>();
+
+        Ok(result.to_string())
     }
 }
 
@@ -174,5 +203,6 @@ mod tests {
 
         let solver = Day5::new(Arc::new(Mutex::new(input)));
         assert_eq!(solver.solve_part_1().unwrap(), "143");
+        assert_eq!(solver.solve_part_2().unwrap(), "123");
     }
 }

@@ -18,6 +18,8 @@ pub enum Error {
     MissingDataError(String),
     #[error("invalid command in challenge: {0}")]
     InvalidCommandError(String),
+    #[error("invalid direction: {0}")]
+    InvalidDirectionError(char),
     #[error("too many lines of input")]
     TooManyLinesError(),
     #[error("no solution found")]

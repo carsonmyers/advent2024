@@ -5,6 +5,7 @@ mod day4;
 mod day5;
 mod error;
 mod solver;
+mod day6;
 
 pub use error::*;
 pub use solver::*;
